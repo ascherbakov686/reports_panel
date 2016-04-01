@@ -36,7 +36,7 @@ class InstanceTab(tabs.TableTab):
             for instance in instances:
                 query = [dict(field='resource_id', op='eq', value = instance.id)]
                 value_cpu = ceiloclient.samples.list(meter_name='cpu_util', limit=1, q=query)
-                value_memory = ceiloclient.samples.list(meter_name='memory', limit=1, q=query)
+                value_memory = ceiloclient.samples.list(meter_name='memory.resident', limit=1, q=query)
                 value_disk_allocation = ceiloclient.samples.list(meter_name='disk.allocation', limit=1, q=query)
                 value_disk_read_bytes_rate = ceiloclient.samples.list(meter_name='disk.read.bytes.rate', limit=1, q=query)
                 value_disk_write_bytes_rate = ceiloclient.samples.list(meter_name='disk.write.bytes.rate', limit=1, q=query)
