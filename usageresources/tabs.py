@@ -6,6 +6,8 @@ from django.utils.translation import ugettext_lazy as _
 from horizon import exceptions
 from horizon import tabs
 
+from keystoneclient.client import Client as kclient 
+
 from openstack_dashboard.api.ceilometer import ceilometerclient as cc
 from openstack_dashboard import api
 from openstack_dashboard.dashboards.reports.usageresources import tables
@@ -32,6 +34,8 @@ class InstanceTab(tabs.TableTab):
                 search_opts={'marker': marker, 'paginate': True})
 
             ceiloclient = cc(self.request)
+            
+            kc = kclient(self.request)
 
             for instance in instances:
                 query = [dict(field='resource_id', op='eq', value = instance.id)]
