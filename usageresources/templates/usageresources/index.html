@@ -3,15 +3,32 @@
 {% block title %}{% trans "Usage Resources For Project" %}{% endblock %}
 
 {% block page_header %}
-  {% include "horizon/common/_page_header.html" with title=_("Usage Resources For Project") %}
+  {% include "horizon/common/_page_header.html" with title=_("Usage resources summary") %}
 {% endblock page_header %}
 
 {% block main %}
-<div class="row">
-   <div class="col-sm-12">
-   {{ tab_group.render }}
-   </div>
+<div class="quota-dynamic">
+<h3>{% trans "Summary Graphs:" %}</h3>
+
+<div class="d3_quota_bar">
+<div class="d3_pie_chart_distribution" data-used="project1=1|project2=2|project3=3|project4=4"></div>
 </div>
+<div class="d3_quota_bar">
+<div class="d3_pie_chart_usage" data-used=""></div>
+</div>
+
+<div class="d3_quota_bar">
+<div class="d3_pie_chart_usage" data-used=""></div>
+</div>
+
+</div>
+
+<div class="row-fluid">
+<div class="col-sm-12">
+{{ table.render }}
+</div>
+</div>
+
 {% endblock %}
 
 
