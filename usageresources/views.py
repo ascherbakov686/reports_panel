@@ -3,6 +3,8 @@ import logging
 from horizon import views
 from horizon import tables
 
+from django.utils.datastructures import SortedDict
+
 from openstack_dashboard.api.ceilometer import ceilometerclient as cc
 from openstack_dashboard import api
 from openstack_dashboard.usage import quotas
@@ -16,11 +18,12 @@ class IndexView(tables.DataTableView):
     template_name = 'reports/usageresources/index.html'
 
     def get_data(self):
-
             instances, has_more0 = api.nova.server_list(self.request,all_tenants=True)
             tenant_list, has_more1  = api.keystone.tenant_list(self.request)
             ceiloclient = cc(self.request)
             hypervisor_list = api.nova.hypervisor_list(self.request)
+            flavors = api.nova.flavor_list(self.request)
+            full_flavors = SortedDict([(f.id, f) for f in flavors])
 
             totals = { "local_gb":0, "memory_mb":0, "vcpus":0 }
             qs = { "cores":0, "ram":0, "gigabytes":0 }
@@ -33,7 +36,7 @@ class IndexView(tables.DataTableView):
             for tenant in tenant_list:
 
                 quota_data = quotas.get_tenant_quota_data(self.request, tenant_id=tenant.id)
-                project = { "cpu_allocated": 0.0, "memory_allocated": 0, "disk_allocated": 0 }
+                project = { "cpu_util": 0.0, "cpu_flavored": 0, "memory_util": 0, "memory_flavored": 0, "disk_util": 0, "disk_flavored": 0 }
 
                 for field in ("cores","ram","gigabytes"):
                     qs[str(field)] = quota_data.get(field).limit
@@ -44,16 +47,34 @@ class IndexView(tables.DataTableView):
                      cpu = ceiloclient.samples.list(meter_name='cpu_util', limit=1, q=query)
                      mem = ceiloclient.samples.list(meter_name='memory.resident', limit=1, q=query)
                      disk = ceiloclient.samples.list(meter_name='disk.allocation', limit=1, q=query)
-                     project['cpu_allocated'] += cpu[0].counter_volume*0.1
-                     project['memory_allocated'] += mem[0].counter_volume
-                     project['disk_allocated'] += disk[0].counter_volume*0.000000001024
+                     project['cpu_util'] += cpu[0].counter_volume*0.1
+                     project['memory_util'] += mem[0].counter_volume
+                     project['disk_util'] += disk[0].counter_volume*0.000000001024
 
-                tenant.cpu_allocated = lambda:'-'
-                setattr(tenant,"cpu_allocated",round(project['cpu_allocated'],2))
-                tenant.memory_allocated = lambda:'-'
-                setattr(tenant,"memory_allocated",round(project['memory_allocated'],2))
-                tenant.disk_allocated = lambda:'-'
-                setattr(tenant,"disk_allocated",round(project['disk_allocated'],2))
+                     flavor_id = instance.flavor["id"]
+                     if flavor_id in full_flavors:
+                        instance.full_flavor = full_flavors[flavor_id]
+                     else:
+                        instance.full_flavor = api.nova.flavor_get(self.request, flavor_id)
+
+                     project['cpu_flavored'] += instance.full_flavor.vcpus
+                     project['memory_flavored'] += instance.full_flavor.ram
+                     project['disk_flavored'] += instance.full_flavor.disk
+
+
+                tenant.cpu_util = lambda:'-'
+                setattr(tenant,"cpu_util",int(project['cpu_util']))
+                tenant.memory_util = lambda:'-'
+                setattr(tenant,"memory_util",int(project['memory_util']))
+                tenant.disk_util = lambda:'-'
+                setattr(tenant,"disk_util",int(project['disk_util']))
+
+                tenant.cpu_flavored = lambda:'-'
+                setattr(tenant,"cpu_flavored",int(project['cpu_flavored']))
+                tenant.memory_flavored = lambda:'-'
+                setattr(tenant,"memory_flavored",int(project['memory_flavored']))
+                tenant.disk_flavored = lambda:'-'
+                setattr(tenant,"disk_flavored",int(project['disk_flavored']))
 
                 tenant.cpu_quota = lambda:'-'
                 setattr(tenant,"cpu_quota",qs['cores'])
@@ -69,11 +90,38 @@ class IndexView(tables.DataTableView):
                 tenant.disk_total = lambda:'-'
                 setattr(tenant,"disk_total",totals['local_gb'])
 
+            LOG.info(instances)
             return tenant_list
-    """
-    def get_context_data(self, **kwargs):
-        context = super(IndexView, self).get_context_data(**kwargs)
-        context["stats"] = self.get_data(self.request)
 
-        return context
-    """
+    def get_context_data(self):
+            context = super(IndexView, self).get_context_data()
+            ten_list = self.get_data()
+
+            for tenant in ten_list:
+                context["cpu_free"] = tenant.cpu_total
+                context["memory_free"] = tenant.memory_total
+                context["disk_free"] = tenant.disk_total
+
+            context["cpu_quota_free"] = 0
+            context["memory_quota_free"] = 0
+            context["disk_quota_free"] = 0
+
+            for tenant in ten_list:
+                context["cpu_quota_free"] += tenant.cpu_quota
+                context["memory_quota_free"] += tenant.memory_quota
+                context["disk_quota_free"] += tenant.disk_quota
+
+            for tenant in ten_list:
+                context["cpu_quota_free"] -= tenant.cpu_flavored
+                context["memory_quota_free"] -= tenant.memory_flavored
+                context["disk_quota_free"] -= tenant.disk_flavored
+
+            for tenant in ten_list:
+                context["cpu_free"] -= tenant.cpu_flavored
+                context["memory_free"] -= tenant.memory_flavored
+                context["disk_free"] -= tenant.disk_flavored
+
+            context["stats"] = ten_list
+
+            return context
+

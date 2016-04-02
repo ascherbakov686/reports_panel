@@ -8,18 +8,20 @@
 
 {% block main %}
 <div class="quota-dynamic">
-<h3>{% trans "Summary Graphs:" %}</h3>
+<h3>{% trans "Graphs:" %}</h3>
+
+<br/>
+<div class="d3_quota_bar">
+<h3>VCPU Usage</h3>
+<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.cpu_flavored}}|{% endfor %}free={{cpu_quota_free}}"></div></div>
 
 <div class="d3_quota_bar">
-<div class="d3_pie_chart_distribution" data-used="project1=1|project2=2|project3=3|project4=4"></div>
-</div>
-<div class="d3_quota_bar">
-<div class="d3_pie_chart_usage" data-used=""></div>
-</div>
+<h3>MEMORY Usage</h3>
+<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.memory_flavored}}|{% endfor %}free={{memory_quota_free}}"></div></div>
 
 <div class="d3_quota_bar">
-<div class="d3_pie_chart_usage" data-used=""></div>
-</div>
+<h3>DISK Usage</h3>
+<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.disk_flavored}}|{% endfor %}free={{disk_quota_free}}"></div></div>
 
 </div>
 
