@@ -63,18 +63,18 @@ class IndexView(tables.DataTableView):
 
 
                 tenant.cpu_util = lambda:'-'
-                setattr(tenant,"cpu_util",int(project['cpu_util']))
+                setattr(tenant,"cpu_util", round(project['cpu_util'],3))
                 tenant.memory_util = lambda:'-'
-                setattr(tenant,"memory_util",int(project['memory_util']))
+                setattr(tenant,"memory_util", round(project['memory_util'],3))
                 tenant.disk_util = lambda:'-'
-                setattr(tenant,"disk_util",int(project['disk_util']))
+                setattr(tenant,"disk_util", round(project['disk_util'],3))
 
                 tenant.cpu_flavored = lambda:'-'
-                setattr(tenant,"cpu_flavored",int(project['cpu_flavored']))
+                setattr(tenant,"cpu_flavored",project['cpu_flavored'])
                 tenant.memory_flavored = lambda:'-'
-                setattr(tenant,"memory_flavored",int(project['memory_flavored']))
+                setattr(tenant,"memory_flavored",project['memory_flavored'])
                 tenant.disk_flavored = lambda:'-'
-                setattr(tenant,"disk_flavored",int(project['disk_flavored']))
+                setattr(tenant,"disk_flavored",project['disk_flavored'])
 
                 tenant.cpu_quota = lambda:'-'
                 setattr(tenant,"cpu_quota",qs['cores'])
@@ -90,7 +90,6 @@ class IndexView(tables.DataTableView):
                 tenant.disk_total = lambda:'-'
                 setattr(tenant,"disk_total",totals['local_gb'])
 
-            LOG.info(instances)
             return tenant_list
 
     def get_context_data(self):
