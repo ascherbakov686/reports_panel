@@ -4,24 +4,29 @@
 
 {% block page_header %}
   {% include "horizon/common/_page_header.html" with title=_("Usage resources summary") %}
+
+<script src="/static/d3/d3.v3.min.js" charset="utf-8"></script>
+<script src="/static/d3/d3pie.js" charset="utf-8"></script>
+
 {% endblock page_header %}
 
 {% block main %}
+
 <div class="quota-dynamic">
 <h3>{% trans "Graphs:" %}</h3>
 
 <br/>
 <div class="d3_quota_bar">
 <h3>VCPU Usage</h3>
-<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.cpu_flavored}}|{% endfor %}free={{cpu_quota_free}}"></div></div>
+<div id="cpu"></div></div>
 
 <div class="d3_quota_bar">
 <h3>MEMORY Usage</h3>
-<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.memory_flavored}}|{% endfor %}free={{memory_quota_free}}"></div></div>
+<div id="mem"></div></div>
 
 <div class="d3_quota_bar">
 <h3>DISK Usage</h3>
-<div class="d3_pie_chart_distribution" data-used="{% for tenant in stats %}{{tenant.name}}={{tenant.disk_flavored}}|{% endfor %}free={{disk_quota_free}}"></div></div>
+<div id="disk"></div></div>
 
 </div>
 
@@ -30,6 +35,55 @@
 {{ table.render }}
 </div>
 </div>
+
+<script type="text/javascript">
+
+var graph_count = 3;
+var graphs = ["cpu","mem","disk"];
+var content = [];
+
+content[0] = [{% for tenant in stats %}{label:"{{tenant.name}}",value:{{tenant.cpu_flavored}}},{% endfor %}{label:"free",value:{{cpu_quota_free}}}];
+content[1] = [{% for tenant in stats %}{label:"{{tenant.name}}",value:{{tenant.memory_flavored}}},{% endfor %}{label:"free",value:{{memory_quota_free}}}];
+content[2] = [{% for tenant in stats %}{label:"{{tenant.name}}",value:{{tenant.disk_flavored}}},{% endfor %}{label:"free",value:{{disk_quota_free}}}];
+
+for (var i=0;i<graph_count;i++)
+{
+var pie = new d3pie(graphs[i], {
+	header: {
+		title: {
+			text: graphs[i]
+		}
+	},
+        labels: {
+               mainLabel: {
+                        fontSize: 15
+               },
+               percentage: {
+                        fontSize: 15
+               },
+               value: {
+                        fontSize: 15
+               }
+        },
+        size: {
+		pieOuterRadius: "100%",
+		canvasHeight: 360
+	},
+	data: {
+		content: content[i]
+	},
+	misc: {
+		colors: {
+			segments: ["#2484c1","#0c6197","#4daa4b","#90c469","#daca61","#e4a14b","#e98125","#cb2121","#830909",
+                                   "#923e99","#ae83d5","#bf273e","#ce2aeb","#bca44a","#618d1b","#1ee67b","#b0ec44","#a4a0c9",
+                                   "#322849","#86f71a","#d1c87f","#7d9058","#44b9b0","#7c37c0","#cc9fb1","#e65414","#8b6834","#248838"]
+	                }
+	}
+});
+
+};
+
+</script>
 
 {% endblock %}
 
