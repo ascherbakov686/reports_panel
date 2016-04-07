@@ -1,4 +1,6 @@
 import logging
+import re
+import time
 
 from horizon import views
 from horizon import tables
@@ -16,6 +18,7 @@ LOG = logging.getLogger(__name__)
 class IndexView(tables.DataTableView):
     table_class = InstancesTable
     template_name = 'reports/usageresources/index.html'
+    hvs_load_avg = []
 
     def get_data(self):
             instances, has_more0 = api.nova.server_list(self.request,all_tenants=True)
@@ -29,6 +32,11 @@ class IndexView(tables.DataTableView):
             qs = { "cores":0, "ram":0, "gigabytes":0 }
 
             for hv in hypervisor_list:
+               uptime = api.nova.hypervisor_uptime(self.request, hv)._info
+               loadavg = uptime['uptime']
+               (val1,val2,val3,min1,min5,min15) = loadavg.split(',')
+               (val3,min1) = min1.split(':')
+               self.hvs_load_avg.append([{ "timestamp": time.time(), "hv_hostname":hv.hypervisor_hostname, "1min":min1, "5min":min5, "15min":min15 }])
                for key, value in hv.to_dict().iteritems():
                    if key in ("local_gb","memory_mb","vcpus"):
                       totals[str(key)] = value
@@ -121,6 +129,7 @@ class IndexView(tables.DataTableView):
                 context["disk_free"] -= tenant.disk_flavored
 
             context["stats"] = ten_list
+            context["hvs_load_avg"] = self.hvs_load_avg
 
             return context
 
