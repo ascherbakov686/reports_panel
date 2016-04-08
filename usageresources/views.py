@@ -22,6 +22,7 @@ class IndexView(tables.DataTableView):
     hvs_load_avg = []
     project_cpu_util_avg = []
     project_mem_util_avg = []
+    ten_list = []
 
     def get_data(self):
             instances, has_more0 = api.nova.server_list(self.request,all_tenants=True)
@@ -127,13 +128,14 @@ class IndexView(tables.DataTableView):
             self.project_cpu_util_avg.append([project_cpu_util_avg_tmp])
             self.project_mem_util_avg.append([project_mem_util_avg_tmp])
 
+            self.ten_list = tenant_list
+
             return tenant_list
 
     def get_context_data(self):
             context = super(IndexView, self).get_context_data()
-            ten_list = self.get_data()
 
-            for tenant in ten_list:
+            for tenant in self.ten_list:
                 context["cpu_free"] = tenant.cpu_total
                 context["memory_free"] = tenant.memory_total
                 context["disk_free"] = tenant.disk_total
@@ -142,22 +144,22 @@ class IndexView(tables.DataTableView):
             context["memory_quota_free"] = 0
             context["disk_quota_free"] = 0
 
-            for tenant in ten_list:
+            for tenant in self.ten_list:
                 context["cpu_quota_free"] += tenant.cpu_quota
                 context["memory_quota_free"] += tenant.memory_quota
                 context["disk_quota_free"] += tenant.disk_quota
 
-            for tenant in ten_list:
+            for tenant in self.ten_list:
                 context["cpu_quota_free"] -= tenant.cpu_flavored
                 context["memory_quota_free"] -= tenant.memory_flavored
                 context["disk_quota_free"] -= tenant.disk_flavored
 
-            for tenant in ten_list:
+            for tenant in self.ten_list:
                 context["cpu_free"] -= tenant.cpu_flavored
                 context["memory_free"] -= tenant.memory_flavored
                 context["disk_free"] -= tenant.disk_flavored
 
-            context["stats"] = ten_list
+            context["stats"] = self.ten_list
             context["hvs_load_avg"] = self.hvs_load_avg
             context["projects_cpu_util_avg"] = self.project_cpu_util_avg
             context["projects_mem_util_avg"] = self.project_mem_util_avg
