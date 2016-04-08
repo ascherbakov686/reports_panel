@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+import json
 
 from horizon import views
 from horizon import tables
@@ -19,6 +20,8 @@ class IndexView(tables.DataTableView):
     table_class = InstancesTable
     template_name = 'reports/usageresources/index.html'
     hvs_load_avg = []
+    project_cpu_util_avg = []
+    project_mem_util_avg = []
 
     def get_data(self):
             instances, has_more0 = api.nova.server_list(self.request,all_tenants=True)
@@ -31,15 +34,36 @@ class IndexView(tables.DataTableView):
             totals = { "local_gb":0, "memory_mb":0, "vcpus":0 }
             qs = { "cores":0, "ram":0, "gigabytes":0 }
 
+            hvs_load_avg_list = []
+
             for hv in hypervisor_list:
                uptime = api.nova.hypervisor_uptime(self.request, hv)._info
                loadavg = uptime['uptime']
                (val1,val2,val3,min1,min5,min15) = loadavg.split(',')
                (val3,min1) = min1.split(':')
-               self.hvs_load_avg.append([{ "timestamp": time.time(), "hv_hostname":hv.hypervisor_hostname, "1min":min1, "5min":min5, "15min":min15 }])
+               hvs_load_avg_list.append([{"hv_hostname":hv.hypervisor_hostname, "min1":min1, "min5":min5, "min15":min15 }])
                for key, value in hv.to_dict().iteritems():
                    if key in ("local_gb","memory_mb","vcpus"):
                       totals[str(key)] = value
+
+            hvs_load_avg_tmp = {}
+            hvs_load_avg_tmp['date'] = time.time()
+            for item in hvs_load_avg_list:
+                it = dict(item[0])
+                hv_hostname = ""
+                for key,value in sorted(it.iteritems()):
+                    if key == 'hv_hostname':
+                       hv_hostname = value
+                       hvs_load_avg_tmp[hv_hostname] = hv_hostname
+                    if key == 'min15':
+                       hvs_load_avg_tmp[hv_hostname] = value
+
+            self.hvs_load_avg.append([hvs_load_avg_tmp])
+
+            project_cpu_util_avg_tmp = {}
+            project_cpu_util_avg_tmp['date'] = time.time()
+            project_mem_util_avg_tmp = {}
+            project_mem_util_avg_tmp['date'] = time.time()
 
             for tenant in tenant_list:
 
@@ -55,7 +79,7 @@ class IndexView(tables.DataTableView):
                      cpu = ceiloclient.samples.list(meter_name='cpu_util', limit=1, q=query)
                      mem = ceiloclient.samples.list(meter_name='memory.resident', limit=1, q=query)
                      disk = ceiloclient.samples.list(meter_name='disk.allocation', limit=1, q=query)
-                     project['cpu_util'] += cpu[0].counter_volume*0.1
+                     project['cpu_util'] += cpu[0].counter_volume
                      project['memory_util'] += mem[0].counter_volume
                      project['disk_util'] += disk[0].counter_volume*0.000000001024
 
@@ -69,6 +93,8 @@ class IndexView(tables.DataTableView):
                      project['memory_flavored'] += instance.full_flavor.ram
                      project['disk_flavored'] += instance.full_flavor.disk
 
+                project_cpu_util_avg_tmp[tenant.name] = project['cpu_util']
+                project_mem_util_avg_tmp[tenant.name] = project['memory_util']
 
                 tenant.cpu_util = lambda:'-'
                 setattr(tenant,"cpu_util", round(project['cpu_util'],3))
@@ -97,6 +123,9 @@ class IndexView(tables.DataTableView):
                 setattr(tenant,"memory_total",totals['memory_mb'])
                 tenant.disk_total = lambda:'-'
                 setattr(tenant,"disk_total",totals['local_gb'])
+
+            self.project_cpu_util_avg.append([project_cpu_util_avg_tmp])
+            self.project_mem_util_avg.append([project_mem_util_avg_tmp])
 
             return tenant_list
 
@@ -130,6 +159,8 @@ class IndexView(tables.DataTableView):
 
             context["stats"] = ten_list
             context["hvs_load_avg"] = self.hvs_load_avg
+            context["projects_cpu_util_avg"] = self.project_cpu_util_avg
+            context["projects_mem_util_avg"] = self.project_mem_util_avg
 
             return context
 

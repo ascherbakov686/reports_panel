@@ -50,10 +50,13 @@
 </div>
 
 <div class="d3_quota_bar">
-<h3>VCPU Utilization(%) for Period</h3>
+<h3>Hypervisors Load Average for Period</h3>
+<div id="loadavg"></div></div>
+<div class="d3_quota_bar">
+<h3>VCPU Utilization for Period</h3>
 <div id="cpu_util"></div></div>
 <div class="d3_quota_bar">
-<h3>Memory Utilization(%) for Period</h3>
+<h3>Memory Utilization for Period</h3>
 <div id="mem_util"></div></div>
 
 <div class="row-fluid">
@@ -113,30 +116,28 @@ var pie = new d3pie(graphs[i], {
 
 <script>
 
-var graph_count = 2;
-var graphs = ["#cpu_util","#mem_util"];
+var graph_count = 3;
+var graphs = ["#loadavg", "#cpu_util", "#mem_util"];
+
 var data_util = [];
 
-data_util[0] = "\
-date	Project1	Project2	Project3\n\
-20160408	63.4	62.7	72.2";
-
-data_util[1] = "\
-date	Project1	Project2	Project3\n\
-20160408	63.4	62.7	72.2";
+data_util[0] = [ {% for item in hvs_load_avg %}{ {% for key,value in item.0.items %} "{{key}}":{{value}},{% endfor %}},{% endfor %} ];
+data_util[1] = [ {% for item in projects_cpu_util_avg %}{ {% for key,value in item.0.items %} "{{key}}":{{value}},{% endfor %}},{% endfor %} ];
+data_util[2] = [ {% for item in projects_mem_util_avg %}{ {% for key,value in item.0.items %} "{{key}}":{{value}},{% endfor %}},{% endfor %} ];
 
 for (var i = 0; i < graph_count; i++)
 {
+   data_util[i].forEach(function(d) {d.date = new Date(d.date * 1000); });
+
    var margin = {
         top: 20,
         right: 80,
         bottom: 30,
         left: 50
       },
-      width = 300 - margin.left - margin.right,
+      width = 600 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
 
-    var parseDate = d3.time.format("%Y%m%d").parse;
     var x = d3.time.scale().range([0, width]);
     var y = d3.scale.linear().range([height, 0]);
     var color = d3.scale.category10();
@@ -158,15 +159,11 @@ for (var i = 0; i < graph_count; i++)
       .append("g")
       .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    var data = d3.tsv.parse(data_util[i]);
+    var data = data_util[i];
 
     color.domain(d3.keys(data[0]).filter(function(key) {
       return key !== "date";
     }));
-
-    data.forEach(function(d) {
-      d.date = parseDate(d.date);
-    });
 
     var projects = color.domain().map(function(name) {
       return {
@@ -210,7 +207,7 @@ for (var i = 0; i < graph_count; i++)
       .attr("y", 6)
       .attr("dy", ".71em")
       .style("text-anchor", "end")
-      .text("Util (%)");
+      .text("");
 
     var project = svg.selectAll(".project")
       .data(projects)
