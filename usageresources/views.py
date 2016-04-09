@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-import json
 
 from horizon import views
 from horizon import tables
@@ -39,10 +38,10 @@ class IndexView(tables.DataTableView):
 
             for hv in hypervisor_list:
                uptime = api.nova.hypervisor_uptime(self.request, hv)._info
-               loadavg = uptime['uptime']
-               (val1,val2,val3,min1,min5,min15) = loadavg.split(',')
-               (val3,min1) = min1.split(':')
-               hvs_load_avg_list.append([{"hv_hostname":hv.hypervisor_hostname, "min1":min1, "min5":min5, "min15":min15 }])
+               m = re.match("(.+)\sup\s+(.+),\s+(.+)\susers,\s+load average:\s(.+)", uptime['uptime'])
+               if m:
+                  (min1,min5,min15) = m.group(4).split(',')
+                  hvs_load_avg_list.append([{"hv_hostname":hv.hypervisor_hostname, "min1":min1, "min5":min5, "min15":min15 }])
                for key, value in hv.to_dict().iteritems():
                    if key in ("local_gb","memory_mb","vcpus"):
                       totals[str(key)] = value
@@ -55,7 +54,7 @@ class IndexView(tables.DataTableView):
                 for key,value in sorted(it.iteritems()):
                     if key == 'hv_hostname':
                        hv_hostname = value
-                       hvs_load_avg_tmp[hv_hostname] = hv_hostname
+                       hvs_load_avg_tmp[hv_hostname] = 0
                     if key == 'min15':
                        hvs_load_avg_tmp[hv_hostname] = value
 
