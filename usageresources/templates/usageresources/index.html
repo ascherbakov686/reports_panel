@@ -32,9 +32,7 @@
 {% block main %}
 
 <div class="quota-dynamic">
-<h3>{% trans "Graphs:" %}</h3>
 
-<br/>
 <div class="d3_quota_bar">
 <h3>VCPU Usage</h3>
 <div id="cpu"></div></div>
@@ -118,6 +116,8 @@ var pie = new d3pie(graphs[i], {
 
 var graph_count = 3;
 var graphs = ["#loadavg", "#cpu_util", "#mem_util"];
+var totals = [10,1,3080];
+var total_labels = ["LA","Cpu","Memory"];
 
 var data_util = [];
 
@@ -188,9 +188,9 @@ for (var i = 0; i < graph_count; i++)
         });
       }),
       d3.max(projects, function(c) {
-        return d3.max(c.values, function(v) {
-          return v.util;
-        });
+        //return d3.max(c.values, function(v) {
+          return totals[i];
+        //});
       })
     ]);
 
@@ -207,7 +207,7 @@ for (var i = 0; i < graph_count; i++)
       .attr("y", 6)
       .attr("dy", ".71em")
       .style("text-anchor", "end")
-      .text("");
+      .text(total_labels[i]);
 
     var project = svg.selectAll(".project")
       .data(projects)
