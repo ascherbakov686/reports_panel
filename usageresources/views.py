@@ -19,8 +19,8 @@ class IndexView(tables.DataTableView):
     table_class = InstancesTable
     template_name = 'reports/usageresources/index.html'
     hvs_load_avg = []
-    project_cpu_util_avg = []
-    project_mem_util_avg = []
+    cpu_util_avg = []
+    mem_util_avg = []
     ten_list = []
 
     def get_data(self):
@@ -31,7 +31,12 @@ class IndexView(tables.DataTableView):
             flavors = api.nova.flavor_list(self.request)
             full_flavors = SortedDict([(f.id, f) for f in flavors])
 
-            totals = { "local_gb":0, "memory_mb":0, "vcpus":0 }
+            cpu_util_avg_tmp = {}
+            mem_util_avg_tmp = {}
+            cpu_util_avg_tmp['cpu_util'] = []
+            mem_util_avg_tmp['memory_util'] = []
+
+            totals = { "local_gb":0, "memory_mb":0, "vcpus":0, "vcpus_flavored":0, "vcpu_util":0.0, "memory_util":0.0, }
             qs = { "cores":0, "ram":0, "gigabytes":0 }
 
             hvs_load_avg_list = []
@@ -60,11 +65,6 @@ class IndexView(tables.DataTableView):
 
             self.hvs_load_avg.append([hvs_load_avg_tmp])
 
-            project_cpu_util_avg_tmp = {}
-            project_cpu_util_avg_tmp['date'] = time.time()
-            project_mem_util_avg_tmp = {}
-            project_mem_util_avg_tmp['date'] = time.time()
-
             for tenant in tenant_list:
 
                 quota_data = quotas.get_tenant_quota_data(self.request, tenant_id=tenant.id)
@@ -79,9 +79,6 @@ class IndexView(tables.DataTableView):
                      cpu = ceiloclient.samples.list(meter_name='cpu_util', limit=1, q=query)
                      mem = ceiloclient.samples.list(meter_name='memory.resident', limit=1, q=query)
                      disk = ceiloclient.samples.list(meter_name='disk.allocation', limit=1, q=query)
-                     project['cpu_util'] += cpu[0].counter_volume
-                     project['memory_util'] += mem[0].counter_volume
-                     project['disk_util'] += disk[0].counter_volume*0.000000001024
 
                      flavor_id = instance.flavor["id"]
                      if flavor_id in full_flavors:
@@ -89,12 +86,26 @@ class IndexView(tables.DataTableView):
                      else:
                         instance.full_flavor = api.nova.flavor_get(self.request, flavor_id)
 
-                     project['cpu_flavored'] += instance.full_flavor.vcpus
-                     project['memory_flavored'] += instance.full_flavor.ram
-                     project['disk_flavored'] += instance.full_flavor.disk
+                     try:
+                        project['cpu_flavored'] += instance.full_flavor.vcpus
+                        totals['vcpus_flavored'] += instance.full_flavor.vcpus
+                        project['memory_flavored'] += instance.full_flavor.ram
+                        project['disk_flavored'] += instance.full_flavor.disk
+                     except:
+                        LOG.error("Error flavor for instance: %s" % instance.id)
 
-                project_cpu_util_avg_tmp[tenant.name] = project['cpu_util']
-                project_mem_util_avg_tmp[tenant.name] = project['memory_util']
+                     try:
+                        project['cpu_util'] += cpu[0].counter_volume * instance.full_flavor.vcpus
+                        totals['vcpu_util'] += project['cpu_util']
+                        project['memory_util'] += mem[0].counter_volume
+                        totals['memory_util'] += project['memory_util']
+                        project['disk_util'] += disk[0].counter_volume*0.000000001024
+                     except Exception:
+                        LOG.error("Error ceilometer for instance: %s" % instance.id)
+
+
+                cpu_util_avg_tmp['cpu_util'].append(project['cpu_util'])
+                mem_util_avg_tmp['memory_util'].append(project['memory_util'])
 
                 tenant.cpu_util = lambda:'-'
                 setattr(tenant,"cpu_util", round(project['cpu_util'],3))
@@ -124,10 +135,19 @@ class IndexView(tables.DataTableView):
                 tenant.disk_total = lambda:'-'
                 setattr(tenant,"disk_total",totals['local_gb'])
 
-            self.project_cpu_util_avg.append([project_cpu_util_avg_tmp])
-            self.project_mem_util_avg.append([project_mem_util_avg_tmp])
-
             self.ten_list = tenant_list
+
+            cpu_util_avg_tmp['date'] = int(time.time())
+            mem_util_avg_tmp['date'] = int(time.time())
+            cpu_util_avg_tmp['cpu_util_avg'] = 100 / ((totals['vcpus_flavored'] * 100) / totals['vcpu_util'])
+            mem_util_avg_tmp['memory_util_avg'] = 100 / (totals['memory_mb'] / totals['memory_util'])
+
+            LOG.info(totals)
+            LOG.info(cpu_util_avg_tmp)
+            LOG.info(mem_util_avg_tmp)
+
+            self.cpu_util_avg.append([{"date":cpu_util_avg_tmp['date'],"cpu":cpu_util_avg_tmp['cpu_util_avg']}])
+            self.mem_util_avg.append([{"date":mem_util_avg_tmp['date'],"memory":mem_util_avg_tmp['memory_util_avg']}])
 
             return tenant_list
 
@@ -160,12 +180,10 @@ class IndexView(tables.DataTableView):
 
             context["stats"] = self.ten_list
             context["hvs_load_avg"] = self.hvs_load_avg
-            context["projects_cpu_util_avg"] = self.project_cpu_util_avg
-            context["projects_mem_util_avg"] = self.project_mem_util_avg
+            context["cpu_util_avg"] = self.cpu_util_avg
+            context["mem_util_avg"] = self.mem_util_avg
 
             return context
 
-    def median(numbers):
-        return (sorted(numbers)[int(round((len(numbers) - 1) / 2.0))] + sorted(numbers)[int(round((len(numbers) - 1) // 2.0))]) / 2.0
-
-
+    def mean(self,numbers):
+        return float( sum(numbers) / len(numbers) )
