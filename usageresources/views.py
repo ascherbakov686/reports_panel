@@ -36,7 +36,7 @@ class IndexView(tables.DataTableView):
             cpu_util_avg_tmp['cpu_util'] = []
             mem_util_avg_tmp['memory_util'] = []
 
-            totals = { "local_gb":0, "memory_mb":0, "vcpus":0, "vcpus_flavored":0, "vcpu_util":0.0, "memory_util":0.0, }
+            totals = { "local_gb":0, "memory_mb":0, "vcpus":0, "vcpus_flavored":0, "vcpu_util":0.0000000001, "memory_util":0.0000000001, }
             qs = { "cores":0, "ram":0, "gigabytes":0 }
 
             hvs_load_avg_list = []
