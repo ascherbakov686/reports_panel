@@ -100,7 +100,7 @@ class IndexView(tables.DataTableView):
                         project['memory_util'] += mem[0].counter_volume
                         totals['memory_util'] += project['memory_util']
                         project['disk_util'] += disk[0].counter_volume*0.000000001024
-                     except Exception:
+                     except:
                         LOG.error("Error ceilometer for instance: %s" % instance.id)
 
 
