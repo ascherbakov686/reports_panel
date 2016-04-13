@@ -25,7 +25,6 @@ class IndexView(tables.DataTableView):
 
     def get_data(self):
             instances, has_more0 = api.nova.server_list(self.request,all_tenants=True)
-            domain_list  = api.keystone.domain_list(self.request)
             ceiloclient = cc(self.request)
             hypervisor_list = api.nova.hypervisor_list(self.request)
             flavors = api.nova.flavor_list(self.request)
@@ -67,13 +66,11 @@ class IndexView(tables.DataTableView):
 
             self.ten_list = []
 
-            for domain in domain_list:
+            domain_context = self.request.session.get('domain_context', None)
 
-              domain_context = self.request.session.get('domain_context', None)
+            tenant_list, has_more1  = api.keystone.tenant_list(self.request, domain=domain_context)
 
-              tenant_list, has_more1  = api.keystone.tenant_list(self.request, domain=domain_context)
-
-              if tenant_list:
+            if tenant_list:
 
                for tenant in tenant_list:
 
@@ -145,28 +142,28 @@ class IndexView(tables.DataTableView):
                    tenant.disk_total = lambda:'-'
                    setattr(tenant,"disk_total",totals['local_gb'])
 
-               #self.ten_list = tenant_list
-               self.ten_list += tenant_list
+            self.ten_list = tenant_list
+            #self.ten_list += tenant_list
 
-               cpu_util_avg_tmp['date'] = int(time.time())
-               mem_util_avg_tmp['date'] = int(time.time())
-               try:
-                  cpu_util_avg_tmp['cpu_util_avg'] = 100 / ((totals['vcpus_flavored'] * 100) / totals['vcpu_util'])
-                  mem_util_avg_tmp['memory_util_avg'] = 100 / (totals['memory_mb'] / totals['memory_util'])
-               except:
-                  pass
+            cpu_util_avg_tmp['date'] = int(time.time())
+            mem_util_avg_tmp['date'] = int(time.time())
+            try:
+               cpu_util_avg_tmp['cpu_util_avg'] = 100 / ((totals['vcpus_flavored'] * 100) / totals['vcpu_util'])
+               mem_util_avg_tmp['memory_util_avg'] = 100 / (totals['memory_mb'] / totals['memory_util'])
+            except:
+               pass
 
-               LOG.info(totals)
-               LOG.info(cpu_util_avg_tmp)
-               LOG.info(mem_util_avg_tmp)
+            LOG.info(totals)
+            LOG.info(cpu_util_avg_tmp)
+            LOG.info(mem_util_avg_tmp)
 
-               try:
-                  self.cpu_util_avg.append([{"date":cpu_util_avg_tmp['date'],"cpu":cpu_util_avg_tmp['cpu_util_avg']}])
-                  self.mem_util_avg.append([{"date":mem_util_avg_tmp['date'],"memory":mem_util_avg_tmp['memory_util_avg']}])
-               except:
-                  pass
+            try:
+                self.cpu_util_avg.append([{"date":cpu_util_avg_tmp['date'],"cpu":cpu_util_avg_tmp['cpu_util_avg']}])
+                self.mem_util_avg.append([{"date":mem_util_avg_tmp['date'],"memory":mem_util_avg_tmp['memory_util_avg']}])
+            except:
+                pass
 
-               return self.ten_list
+            return self.ten_list
 
     def get_context_data(self):
             context = super(IndexView, self).get_context_data()
